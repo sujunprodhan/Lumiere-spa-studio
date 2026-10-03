@@ -27,7 +27,7 @@ const Navbar = () => {
       <Container>
         <div className="flex items-center justify-between h-20">
           {/* Logo */}
-          <div className="shrink-0">
+          <div className="shrink-0 md:flex-1">
             <Link
               href={'/'}
               className="text-2xl font-bold tracking-widest text-[#580F41] dark:text-[#36081b] font-serif"
@@ -36,23 +36,24 @@ const Navbar = () => {
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          {/* Desktop Navigation Links (Center) */}
+          <div className="hidden md:flex flex-1 justify-center">
             <ul className="flex items-center space-x-8">{navItem}</ul>
-            <div className="flex items-center space-x-4">
-              <Link
-                href={'/login'}
-                className=" font-medium hover:text-white hover:bg-[#7a155a] transition-colors outline px-5 py-2 rounded-md"
-              >
-                Login
-              </Link>
-              <Link
-                href={'/register'}
-                className="px-5 py-2 bg-[#580F41] text-white rounded-md hover:bg-[#7a155a] transition-colors font-medium"
-              >
-                Register
-              </Link>
-            </div>
+          </div>
+
+          <div className="hidden md:flex flex-1 justify-end items-center space-x-4">
+            <Link
+              href={'/login'}
+              className="font-medium hover:text-white hover:bg-[#7a155a] transition-colors border px-5 py-2 rounded-md"
+            >
+              Login
+            </Link>
+            <Link
+              href={'/register'}
+              className="px-5 py-2 bg-[#580F41] text-white rounded-md hover:bg-[#7a155a] transition-colors font-medium"
+            >
+              Register
+            </Link>
           </div>
 
           {/* Mobile Menu Button */}
