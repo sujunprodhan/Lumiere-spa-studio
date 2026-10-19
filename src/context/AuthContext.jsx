@@ -1,35 +1,45 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState } from 'react';
+import { SessionProvider, useSession, signOut } from 'next-auth/react';
 
 const AuthContext = createContext({
   user: null,
   isLoading: true,
   login: () => {},
   logout: () => {},
+  session: null,
+  status: 'loading',
 });
 
-export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        const storedUser = localStorage.getItem('lumiere_user');
-        if (storedUser) {
-          setUser(JSON.parse(storedUser));
-        }
+const AuthInnerProvider = ({ children }) => {
+  const { data: session, status } = useSession();
+  const [localUser, setLocalUser] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('lumiere_user');
+        return stored ? JSON.parse(stored) : null;
+      } catch (e) {
+        return null;
       }
-    } catch (error) {
-      console.error('Failed to parse stored user:', error);
-    } finally {
-      setIsLoading(false);
     }
-  }, []);
+    return null;
+  });
+
+  const user = session?.user
+    ? {
+        id: session.user.id || '',
+        name: session.user.name,
+        email: session.user.email,
+        role: session.user.role || 'user',
+        image: session.user.image,
+      }
+    : localUser;
+
+  const isLoading = status === 'loading';
 
   const login = (userData) => {
-    setUser(userData);
+    setLocalUser(userData);
     if (typeof window !== 'undefined') {
       try {
         localStorage.setItem('lumiere_user', JSON.stringify(userData));
@@ -39,8 +49,8 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    setUser(null);
+  const logout = async () => {
+    setLocalUser(null);
     if (typeof window !== 'undefined') {
       try {
         localStorage.removeItem('lumiere_user');
@@ -48,12 +58,21 @@ export const AuthProvider = ({ children }) => {
         console.error('Failed to clear user session:', error);
       }
     }
+    await signOut({ callbackUrl: '/login' });
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, session, status }}>
       {children}
     </AuthContext.Provider>
+  );
+};
+
+export const AuthProvider = ({ children }) => {
+  return (
+    <SessionProvider>
+      <AuthInnerProvider>{children}</AuthInnerProvider>
+    </SessionProvider>
   );
 };
 

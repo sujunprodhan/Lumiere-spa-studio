@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react';
 import { FaGithub } from 'react-icons/fa';
-import { loginUser } from '@/actions/server/auth';
+import { signIn } from 'next-auth/react';
 import { useAuth } from '@/context/AuthContext';
 
 const LoginForm = () => {
@@ -36,29 +36,36 @@ const LoginForm = () => {
     setServerSuccess('');
 
     try {
-      const res = await loginUser({
+      const res = await signIn('credentials', {
         email: data.email,
         password: data.password,
+        redirect: false,
+        callbackUrl: redirectUrl,
       });
 
-      if (res?.success) {
-        setServerSuccess(res.message || 'Login successful! Welcome back.');
-        if (res.user) {
-          login(res.user);
-        }
+      if (res?.error) {
+        setServerError(res.error || 'Invalid credentials. Please verify your details.');
+      } else if (res?.ok) {
+        setServerSuccess('Login successful! Redirecting to your sanctuary...');
         setTimeout(() => {
           router.push(redirectUrl);
-        }, 1000);
-      } else {
-        setServerError(res?.message || 'Invalid credentials. Please verify your details.');
+          router.refresh();
+        }, 800);
       }
     } catch (err) {
       setServerError('Something went wrong. Please check your connection and try again.');
     }
   };
 
-  const handleSocialLogin = (provider) => {
-    setServerError(`Direct ${provider} sign-in is initialized. In production, connect NextAuth/OAuth provider credentials.`);
+  const handleSocialLogin = async (provider) => {
+    setServerError('');
+    try {
+      await signIn(provider.toLowerCase(), {
+        callbackUrl: redirectUrl,
+      });
+    } catch (err) {
+      setServerError(`Failed to sign in with ${provider}.`);
+    }
   };
 
   return (

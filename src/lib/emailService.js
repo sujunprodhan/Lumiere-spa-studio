@@ -345,31 +345,7 @@ export async function sendBookingEmail(booking) {
 
     const htmlContent = generateScheduleInvoiceHtml(booking);
 
-    const smtpHost = process.env.SMTP_HOST;
-    const smtpPort = process.env.SMTP_PORT;
-    const smtpUser = process.env.SMTP_USER;
-    const smtpPass = process.env.SMTP_PASS;
-    const emailFrom = process.env.EMAIL_FROM || '"Lumiere Spa Studio" <concierge@lumierespa.com>';
-
-    let transporter;
-    let isRealSmtp = false;
-
-    if (smtpHost && smtpUser && smtpPass) {
-      transporter = nodemailer.createTransport({
-        host: smtpHost,
-        port: Number(smtpPort) || 587,
-        secure: Number(smtpPort) === 465,
-        auth: {
-          user: smtpUser,
-          pass: smtpPass,
-        },
-      });
-      isRealSmtp = true;
-    } else {
-      transporter = nodemailer.createTransport({
-        jsonTransport: true,
-      });
-    }
+    const { transporter, isRealSmtp, emailFrom } = getMailTransporter();
 
     const mailOptions = {
       from: emailFrom,
@@ -410,6 +386,96 @@ export async function sendBookingEmail(booking) {
     return {
       success: false,
       message: 'Failed to dispatch email. Please check contact details or front desk concierge.',
+    };
+  }
+}
+
+/**
+ * Helper to build Nodemailer Transporter supporting Gmail and Custom SMTP.
+ */
+export function getMailTransporter() {
+  const smtpHost = process.env.SMTP_HOST;
+  const smtpPort = process.env.SMTP_PORT;
+  const smtpUser = process.env.SMTP_USER;
+  const smtpPass = process.env.SMTP_PASS;
+  const emailFrom = process.env.EMAIL_FROM || (smtpUser ? `"Lumiere Spa Studio" <${smtpUser}>` : '"Lumiere Spa Studio" <concierge@lumierespa.com>');
+
+  const isConfigured =
+    smtpUser &&
+    smtpPass &&
+    smtpUser !== 'your_email@gmail.com' &&
+    smtpPass !== 'your_app_password_here';
+
+  if (!isConfigured) {
+    return {
+      transporter: nodemailer.createTransport({ jsonTransport: true }),
+      isRealSmtp: false,
+      emailFrom,
+    };
+  }
+
+  // If using Gmail, 'service: gmail' ensures optimal TLS & port handling
+  if (smtpHost === 'smtp.gmail.com' || (!smtpHost && smtpUser.includes('@gmail.com'))) {
+    return {
+      transporter: nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: smtpUser,
+          pass: smtpPass,
+        },
+      }),
+      isRealSmtp: true,
+      emailFrom,
+    };
+  }
+
+  return {
+    transporter: nodemailer.createTransport({
+      host: smtpHost || 'smtp.gmail.com',
+      port: Number(smtpPort) || 587,
+      secure: Number(smtpPort) === 465,
+      auth: {
+        user: smtpUser,
+        pass: smtpPass,
+      },
+    }),
+    isRealSmtp: true,
+    emailFrom,
+  };
+}
+
+/**
+ * General-purpose email sender (for welcome emails, notifications, etc.)
+ */
+export async function sendCustomEmail({ to, subject, html, text }) {
+  try {
+    if (!to) {
+      return { success: false, message: 'Recipient email address is required.' };
+    }
+
+    const { transporter, isRealSmtp, emailFrom } = getMailTransporter();
+
+    const mailOptions = {
+      from: emailFrom,
+      to,
+      subject,
+      html,
+      text: text || '',
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+
+    return {
+      success: true,
+      message: isRealSmtp ? `Email sent successfully to ${to}!` : `Simulated email dispatched to ${to}.`,
+      messageId: info.messageId,
+      isRealSmtp,
+    };
+  } catch (error) {
+    console.error('Error sending custom email:', error);
+    return {
+      success: false,
+      message: error.message || 'Failed to send email.',
     };
   }
 }
